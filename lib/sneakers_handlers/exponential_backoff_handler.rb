@@ -140,7 +140,7 @@ module SneakersHandlers
 
     def create_error_exchange!
       create_exchange(dlx_exchange_name).tap do |exchange|
-        queue = channel.queue("#{@queue.name}.error", durable: options[:queue_options][:durable])
+        queue = create_queue!("#{@queue.name}.error")
         queue.bind(exchange, routing_key: dlx_routing_key)
       end
     end
@@ -164,15 +164,19 @@ module SneakersHandlers
       # to check if they exist, and when they don't, it will create them for us.
       channel.deregister_queue_named(queue_name)
 
-      channel.queue(queue_name,
-         durable: options[:queue_options][:durable],
-         arguments: {
-           :"x-dead-letter-exchange" => options[:exchange],
-           :"x-dead-letter-routing-key" => queue.name,
-           :"x-message-ttl" => delay * 1_000,
-           :"x-expires" => delay * 1_000 * 2
-         }
-        )
+      create_queue!(
+        queue_name,
+        :"x-dead-letter-exchange" => options[:exchange],
+        :"x-dead-letter-routing-key" => queue.name,
+        :"x-message-ttl" => delay * 1_000,
+        :"x-expires" => delay * 1_000 * 2
+      )
+    end
+
+    def create_queue!(name, **arguments)
+      durable = options[:queue_options][:durable]
+      arguments = { :"x-queue-type" => "quorum", **arguments } if durable
+      channel.queue(name, durable: durable, arguments: arguments)
     end
   end
 end
