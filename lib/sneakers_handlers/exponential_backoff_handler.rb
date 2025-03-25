@@ -177,6 +177,9 @@ module SneakersHandlers
       durable = options[:queue_options][:durable]
       arguments = { :"x-queue-type" => "quorum", **arguments } if durable
       channel.queue(name, durable: durable, arguments: arguments)
+    rescue Bunny::PreconditionFailed
+      channel.queue_delete(name)
+      retry
     end
   end
 end
