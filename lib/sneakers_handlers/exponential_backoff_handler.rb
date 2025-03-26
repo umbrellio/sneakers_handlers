@@ -154,18 +154,8 @@ module SneakersHandlers
     end
 
     def create_retry_queue!(delay)
-      queue_name = "#{queue.name}.retry.#{delay}"
-
-      # When we create a new queue, `Bunny` stores its name in an internal cache.
-      # The problem is that as we are creating ephemeral queues that can expire shortly
-      # after they are created, this cached queue may not exist anymore when we try to
-      # publish a second message to it.
-      # Removing queues from the cache guarantees that `Bunny` will always try
-      # to check if they exist, and when they don't, it will create them for us.
-      channel.deregister_queue_named(queue_name)
-
       create_queue!(
-        queue_name,
+        "#{queue.name}.retry.#{delay}",
         :"x-dead-letter-exchange" => options[:exchange],
         :"x-dead-letter-routing-key" => queue.name,
         :"x-message-ttl" => delay * 1_000,
