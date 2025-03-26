@@ -169,7 +169,6 @@ module SneakersHandlers
         :"x-dead-letter-exchange" => options[:exchange],
         :"x-dead-letter-routing-key" => queue.name,
         :"x-message-ttl" => delay * 1_000,
-        :"x-expires" => delay * 1_000 * 2
       )
     end
 
