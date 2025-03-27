@@ -140,7 +140,7 @@ module SneakersHandlers
 
     def create_error_exchange!
       create_exchange(dlx_exchange_name).tap do |exchange|
-        queue = channel.queue("#{@queue.name}.error", durable: options[:queue_options][:durable])
+        queue = create_queue!("#{@queue.name}.error")
         queue.bind(exchange, routing_key: dlx_routing_key)
       end
     end
@@ -154,25 +154,21 @@ module SneakersHandlers
     end
 
     def create_retry_queue!(delay)
-      queue_name = "#{queue.name}.retry.#{delay}"
+      create_queue!(
+        "#{queue.name}.retry.#{delay}",
+        :"x-dead-letter-exchange" => options[:exchange],
+        :"x-dead-letter-routing-key" => queue.name,
+        :"x-message-ttl" => delay * 1_000,
+      )
+    end
 
-      # When we create a new queue, `Bunny` stores its name in an internal cache.
-      # The problem is that as we are creating ephemeral queues that can expire shortly
-      # after they are created, this cached queue may not exist anymore when we try to
-      # publish a second message to it.
-      # Removing queues from the cache guarantees that `Bunny` will always try
-      # to check if they exist, and when they don't, it will create them for us.
-      channel.deregister_queue_named(queue_name)
-
-      channel.queue(queue_name,
-         durable: options[:queue_options][:durable],
-         arguments: {
-           :"x-dead-letter-exchange" => options[:exchange],
-           :"x-dead-letter-routing-key" => queue.name,
-           :"x-message-ttl" => delay * 1_000,
-           :"x-expires" => delay * 1_000 * 2
-         }
-        )
+    def create_queue!(name, **arguments)
+      durable = options[:queue_options][:durable]
+      arguments = { :"x-queue-type" => "quorum", **arguments } if durable
+      channel.queue(name, durable: durable, arguments: arguments)
+    rescue Bunny::PreconditionFailed
+      channel.open.queue_delete(name)
+      retry
     end
   end
 end
