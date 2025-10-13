@@ -68,6 +68,7 @@ module SneakersHandlers
       attempt_number = death_count(properties[:headers])
       headers = (properties[:headers] || {}).merge(rejection_reason: reason.to_s)
       headers = remove_delayed_message_header(headers)
+      properties = { headers: headers, **properties }
 
       if attempt_number < max_retries
         delay = backoff_function.call(attempt_number)
@@ -81,10 +82,10 @@ module SneakersHandlers
           retry_queue.bind(primary_exchange, routing_key: routing_key)
         end
 
-        primary_exchange.publish(message, routing_key: routing_key, headers: headers)
+        primary_exchange.publish(message, routing_key: routing_key, **properties)
       else
         log(message: "msg=erroring, count=#{attempt_number}, properties=#{properties}")
-        error_exchange.publish(message, routing_key: dlx_routing_key, headers: headers)
+        error_exchange.publish(message, routing_key: dlx_routing_key, **properties)
       end
 
       acknowledge(delivery_info, properties, message)
