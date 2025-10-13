@@ -68,8 +68,7 @@ module SneakersHandlers
       attempt_number = death_count(properties[:headers])
       headers = (properties[:headers] || {}).merge(rejection_reason: reason.to_s)
       headers = remove_delayed_message_header(headers)
-
-      properties[:headers] = headers
+      properties = { headers: headers, **properties }
 
       if attempt_number < max_retries
         delay = backoff_function.call(attempt_number)
